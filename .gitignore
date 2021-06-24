@@ -1,0 +1,8 @@
+**/.DS_Store
+**/*.pyc
+**/*.env
+**/*.idea
+**/venv
+grafana/paths_data/**/*
+postgres/pg_data/**/*
+**/*.log

@@ -1,0 +1,44 @@
+version: "3"
+services:
+  database:
+    image: postgres:10.16-alpine
+    restart: always
+    volumes:
+      - "./postgres/pg_data:/var/lib/postgresql/data"
+      - "./postgres/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d"
+    environment:
+      POSTGRES_DB: noaa_weather
+      POSTGRES_USER: crobin
+      POSTGRES_PASSWORD: tut-tut-looks-like-rain
+    ports:
+      - "5432:5432"
+    user: postgres
+  graphs:
+    image: "grafana/grafana:8.0.3"
+    restart: always
+    volumes:
+      - "./grafana/paths_data:/var/lib/grafana"
+      - "./grafana/paths_provisioning:/etc/grafana/provisioning"
+      - "./grafana/paths_plugins:/var/lib/grafana/plugins"
+    ports:
+      - "3000:3000"
+    depends_on:
+      - database
+  fastapi:
+    environment:
+      NOAA_DB_HOST: database
+      NOAA_DB_NAME: noaa_weather
+      NOAA_DB_USERNAME: crobin
+      NOAA_DB_PASSWORD: tut-tut-looks-like-rain
+      NOAA_CDO_TOKEN: MMyLuUNIqVAiLiWfXIlwLhkEboMDviLV
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+      - "5678:5678"
+    restart: always
+    command:
+      - /start-reload.sh
+    depends_on:
+      - graphs

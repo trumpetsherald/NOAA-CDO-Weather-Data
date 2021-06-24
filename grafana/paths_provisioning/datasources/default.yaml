@@ -1,0 +1,13 @@
+apiVersion: 1
+
+datasources:
+  - name: NOAA Weather
+    type: postgres
+    url: database
+    database: noaa_weather
+    user: crobin
+    secureJsonData:
+      password: tut-tut-looks-like-rain
+    jsonData:
+      sslmode: disable
+      postgresVersion: 1000
