@@ -1,7 +1,7 @@
 import psycopg2
 import psycopg2.extras as extras
 from retry import retry
-import noaa_logger
+from app import noaa_logger
 
 METRIC_IMPORT_OK = "SUCCESSFUL_IMPORT"
 METRIC_IMPORT_FAIL = "FAILED_IMPORT"
@@ -122,7 +122,7 @@ class NOAADatabase(object):
             self.logger.debug(
                 "Got station_id: %s from DB." % station_id)
 
-        return result
+        return result[0]
 
     def insert_station(self, station):
         upsert_sql = "INSERT INTO public.noaa_station( " \
@@ -146,6 +146,28 @@ class NOAADatabase(object):
                      "EXCLUDED.mindate, EXCLUDED.maxdate," \
                      "EXCLUDED.datacoverage);"
         return self.insert_values([station], upsert_sql)
+
+    def get_last_daily_record_date_for_station(self, station_id):
+        result = self.get_values(
+            'SELECT record_date '
+            'FROM public.noaa_daily '
+            'WHERE station_id = %s '
+            'ORDER BY record_date DESC '
+            'LIMIT 1',
+            (station_id,))
+
+        if result is False:
+            self.logger.error("An error occurred while getting the station.")
+        elif len(result) == 0:
+            self.logger.info("There was no data for station: %s." % station_id)
+            result = None
+        else:
+            result = result[0][0]
+            self.logger.debug(
+                "Got %s as last record date for station: %s." %
+                (result, station_id))
+
+        return result
 
     def insert_daily_weather_records(self, records):
         upsert_sql = "INSERT INTO public.noaa_daily( " \

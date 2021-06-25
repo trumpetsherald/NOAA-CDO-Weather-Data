@@ -20,6 +20,7 @@ services:
       - "./grafana/paths_data:/var/lib/grafana"
       - "./grafana/paths_provisioning:/etc/grafana/provisioning"
       - "./grafana/paths_plugins:/var/lib/grafana/plugins"
+      - "./grafana/dashboard_definitions:/opt/grafana/dashboards"
     ports:
       - "3000:3000"
     depends_on:
@@ -30,7 +31,7 @@ services:
       NOAA_DB_NAME: noaa_weather
       NOAA_DB_USERNAME: crobin
       NOAA_DB_PASSWORD: tut-tut-looks-like-rain
-      NOAA_CDO_TOKEN: MMyLuUNIqVAiLiWfXIlwLhkEboMDviLV
+      NOAA_CDO_TOKEN: <your token goes here>
     build:
       context: .
       dockerfile: Dockerfile

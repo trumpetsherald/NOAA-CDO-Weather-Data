@@ -1,12 +1,11 @@
+import datetime
 import os
-
 import requests
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-
-import noaa_database as db
-import noaa_logger
+from app import noaa_database as db
+from app import noaa_logger
 
 app = FastAPI()
 
@@ -74,11 +73,7 @@ def get_station_data(station_id):
     return result
 
 
-def get_weather_data(dataset_id,
-                     station_id,
-                     start_date="2021-01-01",
-                     end_date="2021-05-20",
-                     offset=1):
+def get_weather_data(dataset_id, station_id, start_date, end_date, offset=1):
     result = []
     url = NOAA_CDO_API_URL_BASE + "data"
 
@@ -125,18 +120,24 @@ def get_weather_data(dataset_id,
 
 @app.get("/stations")
 def get_all_stations():
-    pass
+    result = database.get_stations()
+
+    return result
 
 
 @app.get("/stations/{station_id}")
 def get_station(station_id):
-    pass
-#     elif len(result) == 0:
-#     self.logger.debug(
-#         "Got station_id: %s from DB." % len(result))
-# else:
-# self.logger.debug(
-#     "Got station_id: %s from DB." % len(result))
+    result = database.get_station(station_id)
+
+    if not result:
+        raise HTTPException(
+            status_code=404,
+            detail="Station id %s was not found in the database. "
+                   "Double check the ID against the NOAA API and "
+                   "post to the stations endpoint to add it." %
+                   station_id/station_id)
+
+    return result[0]
 
 
 @app.post("/stations")
@@ -168,7 +169,7 @@ def add_station(station_id: StationId):
             raise HTTPException(
                 status_code=404,
                 detail="Station id %s not found by NOAA API." %
-                       station_id/station_id)
+                       station_id.station_id)
     else:
         raise HTTPException(status_code=500, detail="Unknown error occurred.")
 
@@ -179,9 +180,38 @@ def add_station(station_id: StationId):
                             detail="Error inserting station in database.")
 
 
+def get_dates_for_station_update(station_id: str):
+    station_info = database.get_station(station_id)
+
+    if not station_info:
+        raise HTTPException(
+            status_code=404,
+            detail="Station id %s was not found in the database. "
+                   "Double check the ID against the NOAA API and "
+                   "post to the stations endpoint to add it." % station_id)
+
+    start_date = database.get_last_daily_record_date_for_station(station_id)
+    min_date = station_info[6]
+    max_date = station_info[7]
+
+    if start_date and start_date > min_date:
+        min_date = start_date
+
+    # Go one day less to be safe
+    year_ago = datetime.datetime.now() - datetime.timedelta(days=364)
+
+    if min_date < year_ago.date():
+        min_date = year_ago.date()
+
+    return min_date, max_date
+
+
 @app.get("/daily/{station_id}")
 def update_daily_weather_for_station(station_id: str):
-    data = get_weather_data(NOAA_CDO_DAILY_DATASET_ID, station_id)
+    start_date, end_date = get_dates_for_station_update(station_id)
+
+    data = get_weather_data(
+        NOAA_CDO_DAILY_DATASET_ID, station_id, start_date, end_date)
     row_tuples = []
 
     for row in data:
@@ -196,7 +226,7 @@ def update_daily_weather_for_station(station_id: str):
             detail="An error occurred while inserting records into the "
                    "database.\nPlease check the logs for more details.")
 
-    return {'Records inserted': len(row_tuples)}
+    return {'Records inserted': row_tuples}
 
 
 # This is for debugging, for more info read:
